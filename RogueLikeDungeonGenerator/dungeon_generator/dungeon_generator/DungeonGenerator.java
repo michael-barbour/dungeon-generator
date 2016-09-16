@@ -1,7 +1,7 @@
 package dungeon_generator;
 
 import java.awt.*;
-import java.applet.*;
+import javax.swing.*;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -11,8 +11,9 @@ import java.util.Random;
  * 
  * Dungeon Generator
  * 
- * DungeonGenerator is an Applet that creates a dungeon consisting of rooms and hallways
- * 			The applet is default 510x510 pixels and generates a 16x16 tile map.  Each tile has a color that represents what characteristics it would have
+ * DungeonGenerator creates a dungeon consisting of rooms and hallways
+ * 			The application is by default 510x510 pixels and generates a 16x16 tile map.  
+ * 			Each tile has a color that represents what characteristics it would have
  * 						Floor tiles are brown
  * 						Wall tiles are gray or dark gray
  * 						The player spawn is green
@@ -22,14 +23,13 @@ import java.util.Random;
  *
  */
 
-public class DungeonGenerator extends Applet {
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
+public class DungeonGenerator {
 	Random x = new Random();
 	long seed = x.nextLong();
 	Random rand = new Random(seed);				// Create random number generator (default random seed)
+	
+	JFrame frame;
+	DungeonPanel myDungeonPanel;
 	
 	int map_size_width = 510;					// width and height of map in pixels (default 510x510)
 	int map_size_height = 510;
@@ -49,34 +49,56 @@ public class DungeonGenerator extends Applet {
 	
 	
 	/**
-	 *  init()
+	 *  main()
 	 * 
-	 * 	Pre: none
-	 * 	Post: Initializes tile_map to all be stone
+	 * 	Creates an instance of myDungeon from a static context.
 	 * 
-	 * 	Initializes tile_map to default (stone) tiles.  Creates random seed if one is provided.
+	 */	
+	public static void main(String[] args){
+		DungeonGenerator myDungeon = new DungeonGenerator();
+		myDungeon.init();
+		myDungeon.start();
+	}
+	
+	public DungeonGenerator(){
+	}
+	
+	/**
+	 * init
 	 * 
+	 * Pre: None
+	 * Post:  Creates frame and panel and initializes map to be stone.
 	 */
-	public void init() {
-			for (int i = 0; i < max_tile_y; i++){
-				for(int j = 0; j < max_tile_x; j++){
-					tile_map[j][i] = new Tile();
-				}
+	public void init(){	
+		frame = new JFrame();
+		frame.setVisible(true);
+		frame.setSize(526, 548);
+		
+		myDungeonPanel = new DungeonPanel(tile_map, max_tile_x, max_tile_y, tile_width, tile_height);
+		
+		myDungeonPanel.setBounds(0, 0, 510, 510);
+		myDungeonPanel.setVisible(true);
+		frame.add(myDungeonPanel);
+
+		
+		for (int i = 0; i < max_tile_y; i++){
+			for(int j = 0; j < max_tile_x; j++){
+				tile_map[j][i] = new Tile();
 			}
-			System.out.println(seed);
+		}
+		System.out.println("Map Seed: " + seed);
     }
 
 	
 	/**
 	 * 	start()
 	 * 
-	 * 	Pre: Applet must be initialized
+	 * 	Pre: Program must be initialized
 	 * 	Post: Map generated with player spawn and dungeon exit
 	 * 
 	 *  Creates map by changing wall tiles to floor tiles.  Places player spawn and dungeon exit.
 	 * 
-	 */
-	
+	 */	
     public void start() {
     	generateRooms();
 		generateHalls();
@@ -108,42 +130,6 @@ public class DungeonGenerator extends Applet {
      */
 	private void placeExit() {
 		tile_map[rooms.get(room_order[room_order.length-1])[0]][rooms.get(room_order[room_order.length-1])[1]].setMaterial(3);
-	}
-
-	/**
-	 * paint(Graphics g)
-	 * 
-	 * Pre: Handled by applet
-	 * Post:  Paints the current state to the Applet
-	 * 
-	 * Paint is called by the applet and paints the current conditions to the screen.
-	 * 			Paints all tiles in the current map with the set colors
-	 * 				Floors = brown
-	 * 				Spawn = green
-	 * 				Exit = black
-	 * 				Walls = checkered gray and dark gray
-	 */
-	public void paint(Graphics g){
-		for(int i = 0; i < max_tile_y; i++){
-			for(int j = 0; j < max_tile_x; j++){
-
-				if (tile_map[j][i].getMaterial() == 1)
-					g.setColor(new Color(165, 93, 53));						// Floors = brown
-				else if (tile_map[j][i].getMaterial() == 2)
-					g.setColor(Color.green);								// Spawn = green
-				else if (tile_map[j][i].getMaterial() == 3){
-					g.setColor(Color.black);								// Exit = black
-				}
-				else														// walls = dark gray and gray checkered
-					if ((i + j) % 2 == 0)
-						g.setColor(Color.gray);
-					else
-						g.setColor(Color.darkGray);
-				g.fillRect(j*tile_width, i*tile_height, tile_width, tile_height);
-				//g.drawString("" + tile_map[j][i].getMaterial(), j*tile_width, i*tile_height + tile_height);				// Draws material number on tiles
-				//g.drawString(j + ", " + i, j*tile_width, i*tile_height + tile_height);									// Draws coordinate pair on tiles
-			}
-		}
 	}
 	
 	/**
@@ -187,7 +173,7 @@ public class DungeonGenerator extends Applet {
 		int left = rand.nextInt(x);														// Determines tiles left of room starting point
 		int up = rand.nextInt(y);														// Determines tiles above room starting point
 				
-		for (int i = up+1; i > up - (y+1); i--){					// Check that all planned room spaces are valid
+		for (int i = up+1; i > up - (y+1); i--){										// Check that all planned room spaces are valid
 			for(int j = left+1; j > left - (x+1); j--){ 
 				if ((starting_point[0] + j) >= max_tile_x ||
 						(starting_point[0] + j) < 0 ||
@@ -333,5 +319,76 @@ public class DungeonGenerator extends Applet {
 		}
 		
 		return total_distance;
+	}
+
+	/**
+	 * Dungeon Panel
+	 * 
+	 * @author Michael Barbour
+	 *
+	 *	Nested class allows custom paint function.
+	 */
+	class DungeonPanel extends JPanel{
+		Tile[][] tile_map;
+		int max_tile_x;
+		int max_tile_y;
+		int tile_width;
+		int tile_height;
+		
+		/**
+		 * Dungeon Panel
+		 * 
+		 * @param tile_map - 2d tile array containing all of the materials used
+		 * @param max_tile_x - number of tiles horizontally
+		 * @param max_tile_y - number of tiles vertically
+		 * @param tile_width - width of tiles
+		 * @param tile_height - height of tiles
+		 * 
+		 * Constructs a panel to draw a map using these variables
+		 */
+		public DungeonPanel(Tile[][] tile_map, int max_tile_x, int max_tile_y, int tile_width, int tile_height){
+			this.tile_map = tile_map;
+			this.max_tile_x = max_tile_x;
+			this.max_tile_y = max_tile_y;
+			this.tile_width = tile_width;
+			this.tile_height = tile_height;
+		}
+		
+		/**
+		 * paint(Graphics g)
+		 * 
+		 * Pre: None
+		 * Post:  Creates a panel with a map painted on it
+		 * 
+		 * Paints the current conditions to the panel.
+		 * 			Paints all tiles in the current map with the set colors
+		 * 				Floors = brown
+		 * 				Spawn = green
+		 * 				Exit = black
+		 * 				Walls = checkered gray and dark gray
+		 */
+		@Override
+		public void paint(Graphics g){
+			for(int i = 0; i < max_tile_y; i++){
+				for(int j = 0; j < max_tile_x; j++){
+
+					if (tile_map[j][i].getMaterial() == 1)
+						g.setColor(new Color(165, 93, 53));						// Floors = brown
+					else if (tile_map[j][i].getMaterial() == 2)
+						g.setColor(Color.green);								// Spawn = green
+					else if (tile_map[j][i].getMaterial() == 3){
+						g.setColor(Color.black);								// Exit = black
+					}
+					else														// walls = dark gray and gray checkered
+						if ((i + j) % 2 == 0)
+							g.setColor(Color.gray);
+						else
+							g.setColor(Color.darkGray);
+					g.fillRect(j*tile_width, i*tile_height, tile_width, tile_height);
+					//g.drawString("" + tile_map[j][i].getMaterial(), j*tile_width, i*tile_height + tile_height);				// Draws material number on tiles
+					//g.drawString(j + ", " + i, j*tile_width, i*tile_height + tile_height);									// Draws coordinate pair on tiles
+				}
+			}
+		}
 	}
 }
