@@ -1,7 +1,6 @@
 package dungeon_generator;
 
-import java.awt.*;
-import javax.swing.*;
+import dungeon_generator.Tile.Material;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -24,77 +23,56 @@ import java.util.Random;
  */
 
 public class DungeonGenerator {
-	Random x = new Random();
-	long seed = x.nextLong();
-	Random rand = new Random(seed);				// Create random number generator (default random seed)
+	long seed;
+	Random rand = new Random(); 				// Create random number generator (default random seed)
 	
-	JFrame frame;
-	DungeonPanel myDungeonPanel;
+	static final int default_max_tile_x = 15;
+	static final int default_max_tile_y = 15;
 	
-	int map_size_width = 510;					// width and height of map in pixels (default 510x510)
-	int map_size_height = 510;
-	int tile_width = 15;						// tile sizes
-	int tile_height = 15;
-	int max_tile_x = map_size_width/tile_width;	// total number of tiles
-	int max_tile_y = map_size_height/tile_height;
+	int max_tile_x;						// Default 15x15 board (can be overridden by constructor);
+	int max_tile_y;
 	
-	int min_room_size = 2;						// room size in tiles (default 2 - 6)
+	int min_room_size = 2;						// Room size in tiles (default 2 - 6)
 	int max_room_size = 6;
-	int max_failures = 50;						//Number of failed attempts to create a new room before completing dungeon.
+	int max_failures = 50;						// Number of failed attempts to create a new room before completing dungeon.
 			
-	Tile tile_map[][] = new Tile[max_tile_x][max_tile_y];				// Creates a tile_map of size max_tile_x by max_tile_y
-	ArrayList<int[]> rooms = new ArrayList<int[]>();					// Creates an ArrayList for all successfully placed rooms
-	int[] room_order;													// Creates the order that the hallway generator will visit the rooms.
+	Tile tile_map[][];							// Creates a tile_map of size max_tile_x by max_tile_y
+	
+	ArrayList<Room> rooms = new ArrayList<Room>();					// Creates an ArrayList for all successfully placed rooms
 
-	
-	
 	/**
-	 *  main()
+	 * DungeonGenerator 
 	 * 
-	 * 	Creates an instance of myDungeon from a static context.
+	 * @param tile_width - Number of tiles in the X direction
+	 * @param tile_height - Number of desired tiles in the Y direction
 	 * 
-	 */	
-	public static void main(String[] args){
-		DungeonGenerator myDungeon = new DungeonGenerator();
-		myDungeon.init();
-		myDungeon.start();
-	}
-	
-	public DungeonGenerator(){
-	}
-	
-	/**
-	 * init
-	 * 
-	 * Pre: None
-	 * Post:  Creates frame and panel and initializes map to be stone.
+	 * Initializes variables that determine how many tiles the map will contain (max_tile_x by max_tile_y)
+	 * 		then initializes tile_map to be stone.
 	 */
-	public void init(){	
-		frame = new JFrame();
-		frame.setVisible(true);
-		frame.setSize(526, 548);
+	public DungeonGenerator(int max_tile_x, int max_tile_y){
+		this.max_tile_x = max_tile_x;
+		this.max_tile_y = max_tile_y;
 		
-		myDungeonPanel = new DungeonPanel(tile_map, max_tile_x, max_tile_y, tile_width, tile_height);
-		
-		myDungeonPanel.setBounds(0, 0, 510, 510);
-		myDungeonPanel.setVisible(true);
-		frame.add(myDungeonPanel);
-
+		tile_map = new Tile[max_tile_x][max_tile_y];
 		
 		for (int i = 0; i < max_tile_y; i++){
 			for(int j = 0; j < max_tile_x; j++){
 				tile_map[j][i] = new Tile();
 			}
 		}
-		System.out.println("Map Seed: " + seed);
-    }
-
+	}
 	
 	/**
-	 * 	start()
+	 * DungeonGenerator
 	 * 
-	 * 	Pre: Program must be initialized
-	 * 	Post: Map generated with player spawn and dungeon exit
+	 * Uses default max height and width (15x15 tiles)
+	 */
+	public DungeonGenerator(){
+		this(default_max_tile_x, default_max_tile_y);
+	}
+
+	/**
+	 * 	start
 	 * 
 	 *  Creates map by changing wall tiles to floor tiles.  Places player spawn and dungeon exit.
 	 * 
@@ -107,29 +85,23 @@ public class DungeonGenerator {
     }
     
     /**
-     * 	placeSpawn()
-     * 
-     * 	Pre:  Map has rooms in an order.  Calls on room_order and tile_map
-     * 	Post:  Player spawn is placed in the first room
+     * 	placeSpawn
      * 
      * 	Function places the player spawn in the first room on room_order
      * 
      */
     private void placeSpawn() {
-		tile_map[rooms.get(room_order[0])[0]][rooms.get(room_order[0])[1]].setMaterial(2);
+		tile_map[ rooms.get(0).getX() ][ rooms.get(0).getY() ].setMaterial(Material.PLAYER_SPAWN);
 	}
     
     /**
-     * 	placeExit()
-     * 
-     * 	Pre: Map has rooms in an order.  Calls on room_order and tile_map
-     * 	Post:  Dungeon Exit is placed at the end of the dungeon.
+     * 	placeExit
      * 
      * 	Function places dungeon exit in the final room of the dungeon.
      * 
      */
 	private void placeExit() {
-		tile_map[rooms.get(room_order[room_order.length-1])[0]][rooms.get(room_order[room_order.length-1])[1]].setMaterial(3);
+		tile_map[ rooms.get(rooms.size() - 1).getX() ][ rooms.get(rooms.size() - 1).getY() ].setMaterial(Material.EXIT);
 	}
 	
 	/**
@@ -142,16 +114,15 @@ public class DungeonGenerator {
 	 */
 	public void generateRooms(){
 		int failed_attempts = 0;											// Tracks number of attempts to create a new room before aborting
-		int[] starting_point;									// Current room location
+		Room currentRoom;													// Current room location
 		
 		while (failed_attempts < max_failures){
-			starting_point = new int[2];
-			starting_point[0] = rand.nextInt(max_tile_x);					// Save a random location to build a room
-			starting_point[1] = rand.nextInt(max_tile_y);
+			currentRoom = new Room(rand.nextInt(max_tile_x), rand.nextInt(max_tile_y));
+																			// Pick starting location for room.
 			
-			if (buildRoom(starting_point)){									// Attempts to construct a room at starting point. returns False if room fails to be constructed
+			if (buildRoom(currentRoom)){									// Attempts to construct a room at starting point. returns False if room fails to be constructed
 				failed_attempts = 0;
-				rooms.add(starting_point);
+				rooms.add(currentRoom);
 			}
 			else{
 				failed_attempts++;
@@ -160,14 +131,14 @@ public class DungeonGenerator {
 	}
 	
 	/**
-	 * buildRoom(int[] starting_point)
+	 * buildRoom
 	 * 
 	 * @param starting_point - point around which the function attempts to build a room
 	 * @return	true - Room was constructed;  false - Room could not be constructed
 	 * 
 	 * Function attempts to build a room at given starting point, Fails if the room is too close to another room or if room is out of bounds.
 	 */
-	public boolean buildRoom(int[] starting_point) {
+	public boolean buildRoom(Room currentRoom) {
 		int x = rand.nextInt(max_room_size - min_room_size) + min_room_size;			// Determines width of new room
 		int y = rand.nextInt(max_room_size - min_room_size) + min_room_size;			// Determines height of new room
 		int left = rand.nextInt(x);														// Determines tiles left of room starting point
@@ -175,11 +146,11 @@ public class DungeonGenerator {
 				
 		for (int i = up+1; i > up - (y+1); i--){										// Check that all planned room spaces are valid
 			for(int j = left+1; j > left - (x+1); j--){ 
-				if ((starting_point[0] + j) >= max_tile_x ||
-						(starting_point[0] + j) < 0 ||
-						(starting_point[1] + i) >= max_tile_y || 
-						(starting_point[1] + i) < 0 ||
-						tile_map[starting_point[0] + j][starting_point[1] + i].getMaterial() != 0){
+				if ((currentRoom.getX() + j) >= max_tile_x ||
+						(currentRoom.getX() + j) < 0 ||
+						(currentRoom.getY() + i) >= max_tile_y || 
+						(currentRoom.getY() + i) < 0 ||
+						tile_map[currentRoom.getX() + j][currentRoom.getY() + i].getMaterial() != Material.STONE){
 					return false;
 				}
 			}
@@ -187,7 +158,7 @@ public class DungeonGenerator {
 				
 		for (int i = up; i > up - y; i--){		// Changes materials to floor for all spaces within room domain
 			for(int j = left; j > left - x; j--){ 
-				tile_map[starting_point[0] + j][starting_point[1] + i].setMaterial(1);					
+				tile_map[currentRoom.getX() + j][currentRoom.getY() + i].setMaterial(Material.FLOOR);					
 			}
 		}
 		return true;
@@ -196,199 +167,154 @@ public class DungeonGenerator {
 	/**
 	 * generateHalls()
 	 * 
-	 * Pre: Rooms must be constructed
-	 * Post: Halls connecting all rooms are constructed
+	 * generateHalls uses a greedy algorithm to connect all of the rooms in the dungeon to each other.  
+	 * 		While the algorithm does not provide the shortest path,
+	 * 		it does allow the overlapping of hallways for a more labyrinth-style of dungeon.
 	 * 
-	 * generateHalls uses a greedy algorithm to connect all of the rooms in the dungeon to each other.  While the algorithm does not provide the best path,
-	 * 		it allows overlapping of hallways and a more labyrinth style of hallways without being too overwhelming.
-	 * 
-	 * 		Function calls drawHalls()
+	 * 		Function calls createHalls()
 	 */
 	public void generateHalls() {
-		int[] permutation = new int[rooms.size()];
-		
-		for(int i = 0; i < rooms.size(); i++){
-			permutation[i] = i;													// Add all rooms to path
-		}
-		
 		for (int i = 0; i < rooms.size() - 1; i++){								// Finds nearest room and draws a path to it. 
-			int best = distance(rooms.get(permutation[i]), rooms.get(permutation[i+1]));
+			int best = distance(rooms.get(i), rooms.get(i+1));
 			for(int j = i + 2; j < rooms.size(); j++){
-				int current = distance(rooms.get(permutation[i]), rooms.get(permutation[j]));
+				int current = distance(rooms.get(i), rooms.get(j));
 				if(current < best){
 					best = current;
-					int temp = permutation[i+1];
-					permutation[i+1] = permutation[j];
-					permutation[j] = temp;
+					Room temp = rooms.get(i+1);
+					rooms.set(i+1, rooms.get(j));
+					rooms.set(j, temp);
 				}
 			}
 		}
-		room_order = permutation;
-		drawHalls();													// Draw a hall between each room in order
-		
+		createHalls();													// create a hall between each room in the list order
 	}
 
 	/**
-	 * drawHalls()
+	 * createHalls()
 	 * 
-	 * Pre:  room_order must be decided
-	 * Post: Halls are constructed on tile_map
-	 * 
-	 * Draws halls between each room in room_order and the one following it.
+	 * creates halls between each room and the one following it in the list.
 	 */
-	public void drawHalls(){
-		for(int i = 0; i < room_order.length - 1; i++){
-			int[][] start_end_points = {rooms.get(room_order[i]), rooms.get(room_order[i+1])};
-			drawHall(start_end_points);
+	public void createHalls(){
+		for(int i = 0; i < rooms.size() - 1; i++){
+			drawHall(rooms.get(i), rooms.get(i+1));
 		}
 	}
 
 	/**
-	 * 	drawHall(int[][] start_end_points)
-	 * 	@param start_end_points - Contains 4 values [0][0] = x coordinate of room 1
-	 * 												[0][1] = y coordinate of room 1
-	 * 												[1][0] = x coordinate of room 2
-	 * 												[1][1] = y coordinate of room 2
+	 * 	drawHall
+	 * 	@param room1 - 
+	 * 	@param room2 - 
 	 * 
-	 * 	Draws a line right and then either up or down to connect rooms via hallways.
+	 * 	Draws a line left and then either up or down to connect rooms via hallways.
 	 */
-	public void drawHall(int[][] start_end_points) {
-		int x1;
-		int x2;
-		int y1;
-		int y2;
+	public void drawHall(Room room1, Room room2) {
+		int x1, x2, y1, y2;
 				
-		if (start_end_points[0][0] < start_end_points[1][0]){
-			x1 = start_end_points[0][0];
-			x2 = start_end_points[1][0];
-			y1 = start_end_points[0][1];
-			y2 = start_end_points[1][1];
+		if (room1.getX() < room2.getX()){			// set x1 and y1 to correspond to the right most point
+			x1 = room1.getX();
+			x2 = room2.getX();
+			y1 = room1.getY();
+			y2 = room2.getY();
 		}
 		else{
-			x1 = start_end_points[1][0];
-			x2 = start_end_points[0][0];
-			y1 = start_end_points[1][1];
-			y2 = start_end_points[0][1];
+			x1 = room2.getX();
+			x2 = room1.getX();
+			y1 = room2.getY();
+			y2 = room1.getY();
 		}
 		
 		
 		
-		while(x1 <= x2){
-			tile_map[x1][y1].setMaterial(1);
+		while(x1 <= x2){									//Draw left from x1 to x2
+			tile_map[x1][y1].setMaterial(Material.FLOOR);
 			x1++;
 		}
-		if (y1 < y2){
+		if (y1 < y2){										//Draw down from y1 to y2 if y1 is above y2	(y1 value is lower)
 			while (y1 <= y2){
-				tile_map[x2][y1].setMaterial(1);
+				tile_map[x2][y1].setMaterial(Material.FLOOR);
 				y1++;
 			}
 		}
 		else{
-			while (y1 >= y2){
-				tile_map[x2][y1].setMaterial(1);
+			while (y1 >= y2){								//Draw up from y1 to y2 if y1 is below y2 (y1 value is higher)
+				tile_map[x2][y1].setMaterial(Material.FLOOR);
 				y1--;
 			}
 		}
 	}
 
 	/**
-	 * 	distance(int[] room1, int[] room2)
+	 * 	distance
 	 * 
-	 * 	@param room1 {x,y} coordinates of starting room
-	 * 	@param room2 {x,y} coordinates of ending room
+	 * 	@param room1 - Starting Room
+	 * 	@param room2 - Ending Room
 	 * 	@return integer value equal to the distance
 	 * 
 	 * 	Calculates the number of tiles required to create a hallway from room1 to room2
 	 */
-	public int distance(int[] room1, int[] room2) {
-		return Math.abs(room1[0] - room2[0]) + Math.abs(room1[1] - room2[1]);
+	public int distance(Room room1, Room room2) {
+		return Math.abs(room1.getX() - room2.getX()) + Math.abs(room1.getY() - room2.getY());
 	}
-
+	
 	/**
-	 *  totalDistance(int[] permutation)
-	 *  
-	 *  @param permutation - array of a potential room order
-	 *  @return	integer value equal to distance between all rooms (excluding connecting first room to last.
-	 * 
-	 *  Calculates the total distance required to go between all rooms
+	 * getSeed
+	 * @return seed - long value corresponding to a specific dungeon configuration
 	 */
-	public int totalDistance(int[] permutation){
-		int total_distance = 0;
-		for(int i = 0; i < permutation.length - 1; i++){
-			total_distance += distance(rooms.get(permutation[i]), rooms.get(permutation[i+1]));
-		}
-		
-		return total_distance;
+	public long getSeed(){
+		return seed;
 	}
-
+	
 	/**
-	 * Dungeon Panel
+	 * setSeed
 	 * 
-	 * @author Michael Barbour
-	 *
-	 *	Nested class allows custom paint function.
+	 * @param seed - long value, typically a random number, that corresponds to a specific map layout.
+	 * 
+	 * Allows the setting of a specific Random Number Generator seed.  Default seed is Random.
 	 */
-	class DungeonPanel extends JPanel{
-		Tile[][] tile_map;
-		int max_tile_x;
-		int max_tile_y;
-		int tile_width;
-		int tile_height;
-		
-		/**
-		 * Dungeon Panel
-		 * 
-		 * @param tile_map - 2d tile array containing all of the materials used
-		 * @param max_tile_x - number of tiles horizontally
-		 * @param max_tile_y - number of tiles vertically
-		 * @param tile_width - width of tiles
-		 * @param tile_height - height of tiles
-		 * 
-		 * Constructs a panel to draw a map using these variables
-		 */
-		public DungeonPanel(Tile[][] tile_map, int max_tile_x, int max_tile_y, int tile_width, int tile_height){
-			this.tile_map = tile_map;
-			this.max_tile_x = max_tile_x;
-			this.max_tile_y = max_tile_y;
-			this.tile_width = tile_width;
-			this.tile_height = tile_height;
-		}
-		
-		/**
-		 * paint(Graphics g)
-		 * 
-		 * Pre: None
-		 * Post:  Creates a panel with a map painted on it
-		 * 
-		 * Paints the current conditions to the panel.
-		 * 			Paints all tiles in the current map with the set colors
-		 * 				Floors = brown
-		 * 				Spawn = green
-		 * 				Exit = black
-		 * 				Walls = checkered gray and dark gray
-		 */
-		@Override
-		public void paint(Graphics g){
-			for(int i = 0; i < max_tile_y; i++){
-				for(int j = 0; j < max_tile_x; j++){
-
-					if (tile_map[j][i].getMaterial() == 1)
-						g.setColor(new Color(165, 93, 53));						// Floors = brown
-					else if (tile_map[j][i].getMaterial() == 2)
-						g.setColor(Color.green);								// Spawn = green
-					else if (tile_map[j][i].getMaterial() == 3){
-						g.setColor(Color.black);								// Exit = black
-					}
-					else														// walls = dark gray and gray checkered
-						if ((i + j) % 2 == 0)
-							g.setColor(Color.gray);
-						else
-							g.setColor(Color.darkGray);
-					g.fillRect(j*tile_width, i*tile_height, tile_width, tile_height);
-					//g.drawString("" + tile_map[j][i].getMaterial(), j*tile_width, i*tile_height + tile_height);				// Draws material number on tiles
-					//g.drawString(j + ", " + i, j*tile_width, i*tile_height + tile_height);									// Draws coordinate pair on tiles
-				}
-			}
-		}
+	public void setSeed(long seed){
+		rand.setSeed(seed);
+	}
+	
+	/**
+	 * setMinRoomSize
+	 * @param min_room_size - int value < max_room_size
+	 * 
+	 * sets the minimum room size allowed to be randomly generated
+	 */
+	public void setMinRoomSize(int min_room_size){
+		this.min_room_size = min_room_size;
+	}
+	
+	/**
+	 * setMaxRoomSize
+	 * 
+	 * @param max_room_size - int value > min_room_size
+	 * 
+	 * sets the maximum room size allowed to be randomly generated
+	 */
+	public void setMaxRoomSize(int max_room_size){
+		this.max_room_size = max_room_size;
+	}
+	
+	/**
+	 * setMaxFailures
+	 * 
+	 * @param max_failures - int > 0
+	 * 
+	 * set the number of attempts a room may be fail to be placed before proceeding to drawing hallways
+	 */
+	public void setMaxFailures(int max_failures){
+		this.max_failures = max_failures;
+	}
+	
+	/**
+	 * getTileMap()
+	 * 
+	 * @return a 2d array consisting of tiles that contains the material data
+	 * 
+	 * This tile_map should be handed to DungeonPanel or further manipulated by another class to allow the addition of treasure or monsters
+	 */
+	public Tile[][] getTileMap(){
+		return tile_map;
 	}
 }

@@ -1,5 +1,7 @@
 package dungeon_generator;
 
+import java.awt.Color;
+
 /**
  * Tile
  * 
@@ -8,10 +10,20 @@ package dungeon_generator;
  * Contains tile data for each tile on the map
  */
 public class Tile {
-	int material;						//material the area will be made out of  0 = Stone
-										//                                       1 = Floor
-										//										 2 = Player Spawn
-										//                                       3 = Exit
+	public enum Material {												// enum type Material used to store tile colors/type
+		STONE (Color.gray),
+		FLOOR (new Color(165, 93, 53)),
+		PLAYER_SPAWN (Color.green),
+		EXIT (Color.black);
+		
+		private Color color;
+		
+		Material (Color c){
+			color = c;
+		}
+	}
+	
+	Material material;
 	
 	/**
 	 * Tile
@@ -19,7 +31,7 @@ public class Tile {
 	 * Constructor - initializes each tile as stone
 	 */
 	public Tile() {
-		material = 0;
+		material = Material.STONE;
 	}
 
 	/**
@@ -27,7 +39,7 @@ public class Tile {
 	 * 
 	 * @return material
 	 */
-	public int getMaterial (){
+	public Material getMaterial (){
 		return material;
 	}
 	
@@ -35,7 +47,11 @@ public class Tile {
 	 * setMaterial
 	 * @param material - allows setting of the material
 	 */
-	public void setMaterial (int material){
+	public void setMaterial (Material material){
 		this.material = material;
+	}
+	
+	public Color getMaterialColor(){
+		return material.color;
 	}
 }
